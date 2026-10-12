@@ -19,6 +19,9 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [archiveError, setArchiveError] = useState("");
   const [openingHistoryId, setOpeningHistoryId] = useState<string | null>(null);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+  const [openArchiveMenuId, setOpenArchiveMenuId] = useState<string | null>(null);
+  const [archiveMenuPosition, setArchiveMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -67,6 +70,25 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     return () => { active = false; };
   }, [pathname, router]);
 
+  useEffect(() => {
+    if (!openArchiveMenuId) return;
+    const closeMenu = () => {
+      setOpenArchiveMenuId(null);
+      setArchiveMenuPosition(null);
+    };
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Element && !event.target.closest(".archive-item-actions")) closeMenu();
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [openArchiveMenuId]);
+
   async function signOut() {
     if (isSupabaseConfigured()) {
       try { await getSupabaseBrowserClient().auth.signOut(); } catch { /* continue to the sign-in page */ }
@@ -81,6 +103,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     sessionStorage.removeItem("forward:draftVersion");
     sessionStorage.removeItem("forward:analysis");
     sessionStorage.removeItem("forward:activeHistoryId");
+    setActiveHistoryId(null);
     sessionStorage.removeItem("forward:rateOverrides");
     sessionStorage.removeItem("forward:quoteOverrides");
     Object.keys(sessionStorage).filter(key => key.startsWith("forward:pieceVolumes:")).forEach(key => sessionStorage.removeItem(key));
@@ -90,6 +113,8 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   async function openQuote(id: string) {
     if (openingHistoryId) return;
+    setOpenArchiveMenuId(null);
+    setArchiveMenuPosition(null);
     setOpeningHistoryId(id);
     setArchiveError("");
     try {
@@ -112,6 +137,25 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function deleteQuote(id: string, title: string) {
+    if (deletingHistoryId || openingHistoryId) return;
+    setOpenArchiveMenuId(null);
+    setArchiveMenuPosition(null);
+    if (!window.confirm(`“${title}” 견적을 삭제할까요?\n삭제한 메일과 분석 기록은 복구할 수 없습니다.`)) return;
+
+    setDeletingHistoryId(id);
+    setArchiveError("");
+    try {
+      await apiFetch<void>(`/api/quote-analyses/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setQuoteHistory(current => current.filter(quote => quote.id !== id));
+      if (activeHistoryId === id) newTask();
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : "견적 기록을 삭제하지 못했어요.");
+    } finally {
+      setDeletingHistoryId(null);
+    }
+  }
+
   const archiveGroups = groupQuoteHistory(quoteHistory);
 
   if (authStatus === "unconfigured") return <main className="auth-gate-page">
@@ -128,11 +172,34 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       {quoteHistory.length ? <div className="archive-list" aria-label="날짜별 최근 분석 견적">
         {archiveGroups.map(group => <section className="archive-date-group" key={group.key} aria-label={group.label}>
           <h3 className="archive-date-heading">{group.label}<span>{group.items.length}</span></h3>
-          {group.items.map(quote => <button className={`archive-item ${activeHistoryId === quote.id ? "selected" : ""}`} key={quote.id} type="button" onClick={() => void openQuote(quote.id)} disabled={Boolean(openingHistoryId)} aria-current={activeHistoryId === quote.id ? "page" : undefined}>
-            <span className="archive-item-dot" aria-hidden="true" />
-            <span className="archive-item-copy"><strong>{quote.title}</strong><small>{quote.detail}</small></span>
-            <time dateTime={validDateTime(quote.createdAt) ? quote.createdAt : undefined}>{formatArchiveTime(quote.createdAt)}</time>
-          </button>)}
+          {group.items.map(quote => <div className={`archive-item ${activeHistoryId === quote.id ? "selected" : ""}`} key={quote.id}>
+            <button className="archive-item-open" type="button" onClick={() => void openQuote(quote.id)} disabled={Boolean(openingHistoryId) || deletingHistoryId === quote.id} aria-current={activeHistoryId === quote.id ? "page" : undefined}>
+              <span className="archive-item-dot" aria-hidden="true" />
+              <span className="archive-item-copy"><strong>{quote.title}</strong><small>{quote.detail}</small></span>
+            </button>
+            <div className="archive-item-actions">
+              <button className="archive-item-more" type="button" onClick={event => {
+                if (openArchiveMenuId === quote.id) {
+                  setOpenArchiveMenuId(null);
+                  setArchiveMenuPosition(null);
+                  return;
+                }
+                const bounds = event.currentTarget.getBoundingClientRect();
+                const menuWidth = 112;
+                const menuHeight = 44;
+                setArchiveMenuPosition({
+                  top: Math.min(bounds.bottom + 5, window.innerHeight - menuHeight - 8),
+                  left: Math.min(bounds.left, window.innerWidth - menuWidth - 8),
+                });
+                setOpenArchiveMenuId(quote.id);
+              }} disabled={Boolean(openingHistoryId) || Boolean(deletingHistoryId)} aria-label={`${quote.title} 메뉴`} aria-haspopup="menu" aria-expanded={openArchiveMenuId === quote.id}>···</button>
+              {openArchiveMenuId === quote.id && archiveMenuPosition && <div className="archive-item-menu" style={archiveMenuPosition} role="menu">
+                <button className="archive-item-delete" type="button" role="menuitem" onClick={() => void deleteQuote(quote.id, quote.title)} disabled={Boolean(openingHistoryId) || Boolean(deletingHistoryId)}>
+                  {deletingHistoryId === quote.id ? "삭제 중…" : "삭제"}
+                </button>
+              </div>}
+            </div>
+          </div>)}
         </section>)}
       </div> : <div className="empty-archive">메일 분석을 완료하면 여기에 표시됩니다.</div>}
       {archiveError && <div className="archive-error" role="status">{archiveError}</div>}
@@ -176,17 +243,6 @@ function localDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function validDateTime(value: string) {
-  return !Number.isNaN(new Date(value).getTime());
-}
-
-function formatArchiveTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function FwdyMark() { return <svg width="39" height="32" viewBox="0 0 40 32" fill="none" aria-hidden="true"><defs><linearGradient id="fwdy-blue" x1="5" y1="5" x2="31" y2="17" gradientUnits="userSpaceOnUse"><stop stopColor="#155CFF"/><stop offset="1" stopColor="#35BDF4"/></linearGradient><linearGradient id="fwdy-mint" x1="5" y1="27" x2="31" y2="15" gradientUnits="userSpaceOnUse"><stop stopColor="#38E0C2"/><stop offset="1" stopColor="#21BFD0"/></linearGradient></defs><path d="M8 7.5 30 16" stroke="url(#fwdy-blue)" strokeWidth="8" strokeLinecap="round"/><path d="M8 24.5 30 16" stroke="url(#fwdy-mint)" strokeWidth="8" strokeLinecap="round"/></svg>; }

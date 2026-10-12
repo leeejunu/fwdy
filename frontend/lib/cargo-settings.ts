@@ -3,6 +3,8 @@ export type CargoCalculationSettings = {
   roundUnit: "1" | "0.5" | "0.1" | "none";
   cwMethod: "max" | "gross" | "volume";
   stackability: "from_mail" | "stackable" | "non_stackable";
+  thcAmount: string;
+  thcBasis: "bl" | "awb" | "kg" | "rt" | "shipment";
 };
 
 export const DEFAULT_CARGO_CALCULATION_SETTINGS: CargoCalculationSettings = {
@@ -10,6 +12,8 @@ export const DEFAULT_CARGO_CALCULATION_SETTINGS: CargoCalculationSettings = {
   roundUnit: "1",
   cwMethod: "max",
   stackability: "from_mail",
+  thcAmount: "",
+  thcBasis: "bl",
 };
 
 export function parseCargoCalculationSettings(value: string | null): CargoCalculationSettings {
@@ -29,6 +33,10 @@ export function parseCargoCalculationSettings(value: string | null): CargoCalcul
       stackability: ["from_mail", "stackable", "non_stackable"].includes(candidate.stackability ?? "")
         ? candidate.stackability as CargoCalculationSettings["stackability"]
         : DEFAULT_CARGO_CALCULATION_SETTINGS.stackability,
+      thcAmount: typeof candidate.thcAmount === "string" ? candidate.thcAmount : DEFAULT_CARGO_CALCULATION_SETTINGS.thcAmount,
+      thcBasis: ["bl", "awb", "kg", "rt", "shipment"].includes(candidate.thcBasis ?? "")
+        ? candidate.thcBasis as CargoCalculationSettings["thcBasis"]
+        : DEFAULT_CARGO_CALCULATION_SETTINGS.thcBasis,
     };
   } catch {
     return DEFAULT_CARGO_CALCULATION_SETTINGS;

@@ -2,19 +2,21 @@ import Link from "next/link";
 
 export default function LandingPage() {
   return (
-    <main className="landing-page min-h-screen overflow-hidden bg-white text-[#192431]">
-      <header className="landing-header mx-auto flex h-[76px] max-w-[1200px] items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="landing-brand flex items-center gap-2.5" aria-label="FWDY 홈">
-          <FwdyMark />
-          <span className="font-[Sora] text-[19px] font-extrabold tracking-[-1.2px]">FWDY</span>
-        </Link>
-        <nav className="hidden items-center gap-9 text-[13px] font-medium text-[#6c7785] md:flex" aria-label="메인 메뉴">
-          <a className="landing-nav-link" href="#features">기능</a>
-          <a className="landing-nav-link" href="#workflow">이용 방법</a>
-        </nav>
-        <Link className="landing-header-cta inline-flex h-10 items-center gap-2 rounded-full bg-[#1c2734] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#2a394a]" href="/login?next=%2Fanalysis">
-          시작하기 <ArrowIcon />
-        </Link>
+    <main className="landing-page min-h-screen overflow-x-clip bg-white text-[#192431]">
+      <header className="landing-header sticky top-0 z-30 border-b border-[#edf0f4] bg-white/90 backdrop-blur-md">
+        <div className="landing-header-inner mx-auto flex h-[76px] max-w-[1200px] items-center justify-between px-5 sm:px-8">
+          <Link href="/" className="landing-brand flex items-center gap-2.5" aria-label="FWDY 홈">
+            <FwdyMark />
+            <span className="font-[Sora] text-[19px] font-extrabold tracking-[-1.2px]">FWDY</span>
+          </Link>
+          <nav className="hidden items-center gap-9 text-[13px] font-medium text-[#6c7785] md:flex" aria-label="메인 메뉴">
+            <a className="landing-nav-link" href="#features">기능</a>
+            <a className="landing-nav-link" href="#workflow">이용 방법</a>
+          </nav>
+          <Link className="landing-header-cta inline-flex h-10 items-center gap-2 rounded-full bg-[#1c2734] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#2a394a]" href="/login?next=%2Fanalysis">
+            시작하기 <ArrowIcon />
+          </Link>
+        </div>
       </header>
 
       <section className="landing-hero relative mx-auto grid max-w-[1200px] items-center gap-10 px-5 pb-20 pt-14 sm:px-8 md:min-h-[610px] md:grid-cols-[1.02fr_.98fr] md:gap-6 md:pb-24 md:pt-10">
