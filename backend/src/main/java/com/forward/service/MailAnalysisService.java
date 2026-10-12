@@ -103,6 +103,16 @@ public class MailAnalysisService {
 		}
 	}
 
+	@Transactional
+	public void deleteAnalysis(UUID id, UUID userId) {
+		QuoteAnalysis record = (userId == null
+				? quoteAnalysisRepository.findByIdAndUserIdIsNull(id)
+				: quoteAnalysisRepository.findByIdAndUserId(id, userId))
+				.orElseThrow(QuoteAnalysisNotFoundException::new);
+		quoteAnalysisRepository.delete(record);
+		log.info("Quote analysis deleted: id={}, userId={}", id, userId);
+	}
+
 	private MailAnalysisResponse analyzeMail(MailAnalysisRequest request) {
 		try {
 			log.info("GPT mail analysis started: shipperChars={}, consoleChars={}",

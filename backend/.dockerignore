@@ -1,0 +1,12 @@
+# Never include credentials in the Docker build context or image.
+.env
+.env.*
+env.production
+
+# Generated files and local tooling.
+.gradle/
+build/
+out/
+.idea/
+*.iml
+.DS_Store
