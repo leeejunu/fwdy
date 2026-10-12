@@ -1,0 +1,27 @@
+# Environment files and credentials (including examples)
+.env*
+**/.env*
+env.production
+**/env.production
+
+# Generated dependencies and build output
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+.next-stale*/
+**/.next-stale*/
+build/
+**/build/
+.gradle/
+**/.gradle/
+out/
+**/out/
+*.tsbuildinfo
+
+# Local IDE and OS files
+.idea/
+**/.idea/
+*.iml
+.DS_Store
+**/.DS_Store
