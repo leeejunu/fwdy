@@ -87,6 +87,7 @@ public class MailAnalysisService {
 		List<QuoteAnalysis> records = userId == null
 				? quoteAnalysisRepository.findTop50ByUserIdIsNullOrderByCreatedAtDesc()
 				: quoteAnalysisRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId);
+		log.info("Quote analysis list fetched: userId={}, count={}", userId, records.size());
 		return records.stream().map(this::toSummaryResponse).toList();
 	}
 
@@ -97,7 +98,21 @@ public class MailAnalysisService {
 				: quoteAnalysisRepository.findByIdAndUserId(id, userId))
 				.orElseThrow(QuoteAnalysisNotFoundException::new);
 		try {
-			return toRecordResponse(record, objectMapper.readValue(record.getAnalysisResult(), MailAnalysisResponse.class));
+			MailAnalysisResponse analysis = objectMapper.readValue(record.getAnalysisResult(), MailAnalysisResponse.class);
+			int offerCount = nonNullList(analysis.quotes()).stream()
+					.mapToInt(quote -> nonNullList(quote.offers()).size()).sum();
+			int pieceCount = analysis.cargo() == null ? 0 : nonNullList(analysis.cargo().pieces()).size();
+			log.info("Quote analysis detail fetched: id={}, userId={}, responseFields=[id,createdAt,title,detail,shipperMail,consoleMail,cargoSettings,analysis], "
+					+ "title={}, detail={}, shipperMailChars={}, consoleMailChars={}, cargoSettingsChars={}, "
+					+ "analysisFields=[destination,cargo,destinations,requestedWarehouseDate,quotes,warnings], "
+					+ "destination={}, packageCount={}, grossWeightKg={}, cargoPieceCount={}, destinationCount={}, vendorCount={}, offerCount={}, warningCount={}",
+				record.getId(), userId, record.getTitle(), record.getDetail(), record.getShipperMail().length(),
+				record.getConsoleMail().length(), record.getCargoSettings().length(), analysis.destination(),
+				analysis.cargo() == null ? null : analysis.cargo().packageCount(),
+				analysis.cargo() == null ? null : analysis.cargo().grossWeightKg(), pieceCount,
+				nonNullList(analysis.destinations()).size(), nonNullList(analysis.quotes()).size(), offerCount,
+				nonNullList(analysis.warnings()).size());
+			return toRecordResponse(record, analysis);
 		} catch (JsonProcessingException exception) {
 			throw new IllegalStateException("저장된 분석 결과를 읽을 수 없습니다.", exception);
 		}
