@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { DEFAULT_CARGO_CALCULATION_SETTINGS, parseCargoCalculationSettings, type CargoCalculationSettings } from "@/lib/cargo-settings";
+import { QUOTE_ANALYSIS_SELECTED } from "@/lib/quote-history";
 import type { CargoPieceInfo, MailAnalysisResponse } from "@/lib/quote-analysis";
 
 type EditablePiece = { lengthCm: number | null; widthCm: number | null; heightCm: number | null; quantity: number | null; grossWeightKg: number | null };
@@ -35,19 +36,28 @@ export default function AnalysisPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("forward:analysis");
-      setCargoSettings(parseCargoCalculationSettings(sessionStorage.getItem("forward:cargoSettings")));
-      if (stored) {
-        const parsed = JSON.parse(stored) as MailAnalysisResponse;
+    function loadSelectedAnalysis() {
+      setLoaded(false);
+      try {
+        const stored = sessionStorage.getItem("forward:analysis");
+        const parsed = stored ? JSON.parse(stored) as MailAnalysisResponse : null;
         setResult(parsed);
-        setPieces((parsed.cargo?.pieces ?? []).map(toEditablePiece));
+        setPieces((parsed?.cargo?.pieces ?? []).map(toEditablePiece));
+        setCargoSettings(parseCargoCalculationSettings(sessionStorage.getItem("forward:cargoSettings")));
+        setOverrides(JSON.parse(sessionStorage.getItem("forward:quoteOverrides") ?? "{}"));
+        setExpandedQuote(null);
+      } catch {
+        setResult(null);
+        setPieces([]);
+        setOverrides({});
+      } finally {
+        setLoaded(true);
       }
-      setOverrides(JSON.parse(sessionStorage.getItem("forward:quoteOverrides") ?? "{}"));
-    } catch {
-      setResult(null);
     }
-    setLoaded(true);
+
+    loadSelectedAnalysis();
+    window.addEventListener(QUOTE_ANALYSIS_SELECTED, loadSelectedAnalysis);
+    return () => window.removeEventListener(QUOTE_ANALYSIS_SELECTED, loadSelectedAnalysis);
   }, []);
 
   const cargo = useMemo(() => {

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { QUOTE_HISTORY_UPDATED } from "@/lib/quote-history";
+import { QUOTE_ANALYSIS_SELECTED, QUOTE_HISTORY_UPDATED } from "@/lib/quote-history";
 import type { QuoteAnalysisRecord, QuoteAnalysisSummary } from "@/lib/quote-analysis";
 
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
@@ -129,6 +129,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         .filter(key => key.startsWith("forward:pieceVolumes:"))
         .forEach(key => sessionStorage.removeItem(key));
       setActiveHistoryId(record.id);
+      window.dispatchEvent(new Event(QUOTE_ANALYSIS_SELECTED));
       router.push("/review");
     } catch (error) {
       setArchiveError(error instanceof Error ? error.message : "견적 기록을 불러오지 못했어요.");
