@@ -19,8 +19,10 @@ public class SecurityConfig {
 				.csrf(AbstractHttpConfigurer::disable)
 				.cors(Customizer.withDefaults())
 				.authorizeHttpRequests(authorize -> authorize
-						.requestMatchers("/api/**").permitAll()
+						.requestMatchers("/api/health").permitAll()
+						.requestMatchers("/api/**").authenticated()
 						.anyRequest().permitAll())
+				.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
 				.build();
 	}
 

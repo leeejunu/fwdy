@@ -4,6 +4,9 @@
 env.production
 **/env.production
 
+# Cloudflare origin certificates and private keys
+backend/certs/
+
 # Generated dependencies and build output
 node_modules/
 **/node_modules/

@@ -1,5 +1,6 @@
 .gradle/
 build/
+snapshot.jar
 out/
 .idea/
 *.iml
@@ -7,3 +8,9 @@ out/
 .env
 .env.*
 env.production
+certs/
+
+# Keep Spring profile configuration local; inject deployment settings at runtime.
+src/main/resources/application*.yml
+src/main/resources/application*.yaml
+src/main/resources/application*.properties

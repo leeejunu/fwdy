@@ -1,21 +1,20 @@
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: forward-postgres
+  backend:
+    image: 427553887212.dkr.ecr.ap-northeast-2.amazonaws.com/fwdy-server:latest
+    container_name: fwdy-backend
     restart: unless-stopped
     environment:
-      POSTGRES_DB: forward
-      POSTGRES_USER: forward
-      POSTGRES_PASSWORD: forward-local
-    ports:
-      - "${POSTGRES_PORT:-55432}:5432"
-    volumes:
-      - forward-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U forward -d forward"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      SPRING_PROFILES_ACTIVE: prod
 
-volumes:
-  forward-postgres-data:
+  nginx:
+    image: nginx:stable-alpine
+    container_name: fwdy-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
