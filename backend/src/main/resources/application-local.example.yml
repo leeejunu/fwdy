@@ -1,0 +1,30 @@
+app:
+  cors:
+    allowed-origins: http://localhost:3000
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1
+          jwk-set-uri: https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1/.well-known/jwks.json
+          jws-algorithms: ES256
+  datasource:
+    url: jdbc:postgresql://${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?sslmode=require
+    username: ${SUPABASE_DB_USERNAME}
+    password: ${SUPABASE_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        model: ${OPENAI_MODEL:gpt-6-luna}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true

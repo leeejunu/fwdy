@@ -13,6 +13,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const review = pathname === "/review";
   const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unconfigured">("checking");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [accountName, setAccountName] = useState("FWDY");
   const [accountEmail, setAccountEmail] = useState("Google 계정");
   const [quoteHistory, setQuoteHistory] = useState<QuoteAnalysisSummary[]>([]);
@@ -22,6 +23,10 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
   const [openArchiveMenuId, setOpenArchiveMenuId] = useState<string | null>(null);
   const [archiveMenuPosition, setArchiveMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    setSidebarCollapsed(localStorage.getItem("forward:sidebarCollapsed") === "true");
+  }, []);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -111,6 +116,14 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     router.push("/analysis");
   }
 
+  function toggleSidebar() {
+    setSidebarCollapsed(current => {
+      const next = !current;
+      localStorage.setItem("forward:sidebarCollapsed", String(next));
+      return next;
+    });
+  }
+
   async function openQuote(id: string) {
     if (openingHistoryId) return;
     setOpenArchiveMenuId(null);
@@ -165,16 +178,21 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   if (authStatus !== "authenticated") return <main className="auth-gate-page" aria-busy="true"><span className="login-spinner"/><p>로그인 상태를 확인하고 있어요.</p></main>;
 
-  return <div className="workspace-app">
-    <aside className="sidebar">
-      <Link className="brand" href="/analysis" aria-label="FWDY 견적 화면으로 이동"><span className="brand-mark"><FwdyMark /></span><span className="brand-copy"><strong>FWDY</strong><small>Forward, made easy</small></span></Link>
-      <button className="new-task" onClick={newTask}><span>＋</span> 새 견적 작업</button>
+  return <div className={`workspace-app ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}`}>
+    <aside id="workspace-sidebar" className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <div className="sidebar-header">
+        <Link className="brand" href="/analysis" aria-label="FWDY 견적 화면으로 이동"><span className="brand-mark"><FwdyMark /></span><span className="brand-copy"><strong>FWDY</strong><small>Forward, made easy</small></span></Link>
+        <button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" title={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}>
+          <SidebarToggleIcon />
+        </button>
+      </div>
+      <button className="new-task" onClick={newTask} title="새 견적 작업"><span>＋</span><span className="new-task-label">새 견적 작업</span></button>
       <div className="side-caption archive-caption">ARCHIVE</div>
       {quoteHistory.length ? <div className="archive-list" aria-label="날짜별 최근 분석 견적">
         {archiveGroups.map(group => <section className="archive-date-group" key={group.key} aria-label={group.label}>
           <h3 className="archive-date-heading">{group.label}<span>{group.items.length}</span></h3>
           {group.items.map(quote => <div className={`archive-item ${activeHistoryId === quote.id ? "selected" : ""}`} key={quote.id}>
-            <button className="archive-item-open" type="button" onClick={() => void openQuote(quote.id)} disabled={Boolean(openingHistoryId) || deletingHistoryId === quote.id} aria-current={activeHistoryId === quote.id ? "page" : undefined}>
+            <button className="archive-item-open" type="button" onClick={() => void openQuote(quote.id)} disabled={Boolean(openingHistoryId) || deletingHistoryId === quote.id} aria-current={activeHistoryId === quote.id ? "page" : undefined} title={quote.title}>
               <span className="archive-item-dot" aria-hidden="true" />
               <span className="archive-item-copy"><strong>{quote.title}</strong><small>{quote.detail}</small></span>
             </button>
@@ -247,4 +265,5 @@ function localDateKey(date: Date) {
 }
 
 function FwdyMark() { return <svg width="39" height="32" viewBox="0 0 40 32" fill="none" aria-hidden="true"><defs><linearGradient id="fwdy-blue" x1="5" y1="5" x2="31" y2="17" gradientUnits="userSpaceOnUse"><stop stopColor="#155CFF"/><stop offset="1" stopColor="#35BDF4"/></linearGradient><linearGradient id="fwdy-mint" x1="5" y1="27" x2="31" y2="15" gradientUnits="userSpaceOnUse"><stop stopColor="#38E0C2"/><stop offset="1" stopColor="#21BFD0"/></linearGradient></defs><path d="M8 7.5 30 16" stroke="url(#fwdy-blue)" strokeWidth="8" strokeLinecap="round"/><path d="M8 24.5 30 16" stroke="url(#fwdy-mint)" strokeWidth="8" strokeLinecap="round"/></svg>; }
+function SidebarToggleIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 18-6-6 6-6"/><path d="M20 5v14"/></svg>; }
 function LogoutIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>; }

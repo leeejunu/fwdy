@@ -26,7 +26,7 @@ AI 추출값은 검토가 필요한 초안입니다. 실제 견적에 사용하�
 | Authentication | Supabase Auth (Google) |
 | AI extraction | OpenAI API |
 
-개발 환경은 로컬 PostgreSQL 컨테이너를 사용하고, 운영 환경은 `DATABASE_URL`로 연결된 Supabase PostgreSQL을 사용합니다. 프론트엔드는 백엔드 REST API를 호출하며, 운영 API는 Supabase JWT를 검증해 사용자별 견적 기록을 분리합니다.
+개발과 운영 모두 Supabase PostgreSQL을 사용합니다. 로컬 백엔드는 `application-local.yml`의 Supabase 연결 설정을 사용하고, 프론트엔드와 같은 Supabase 프로젝트의 JWT를 검증합니다. 프론트엔드는 백엔드 REST API를 호출하며, API는 JWT subject 기준으로 사용자별 견적 기록을 분리합니다.
 
 ## 요청 흐름
 
@@ -42,23 +42,26 @@ AI 추출값은 검토가 필요한 초안입니다. 실제 견적에 사용하�
 
 - Node.js 20 이상 및 npm
 - JDK 21
-- Docker Desktop
 - Supabase 프로젝트 및 Google 로그인 설정
+- Supabase 데이터베이스 비밀번호
 - 메일 분석을 위한 OpenAI API 키
 
-### 1. Backend와 로컬 DB 실행
+### 1. Backend 실행
 
 ```bash
 cd backend
-docker compose up -d postgres
 ```
 
-로컬 설정은 기본적으로 `localhost:55432`의 `forward` 데이터베이스를 사용합니다. `backend/.env` 파일을 만들고 OpenAI 키를 설정하세요.
+`src/main/resources/application-local.yml`은 Git에서 제외되는 로컬 설정 파일입니다. 처음 설정할 때 아래처럼 예제 파일을 복사하세요(이미 파일이 있다면 덮어쓰지 말고 값만 맞추세요).
 
-```properties
-OPENAI_API_KEY=발급한_API_키
-OPENAI_MODEL=gpt-6-luna
+```bash
+cp .env.example .env
+cp src/main/resources/application-local.example.yml src/main/resources/application-local.yml
 ```
+
+`.env`에 Supabase 대시보드의 **Connect → Session pooler**에서 받은 DB host, port, database, username, 프로젝트 ref와 DB 비밀번호를 입력하세요. IPv4 네트워크에서는 Session pooler를 사용합니다. 프론트엔드 `NEXT_PUBLIC_SUPABASE_URL`과 백엔드 JWT issuer/JWKS 및 DB는 같은 Supabase 프로젝트를 가리켜야 합니다. DB 연결은 TLS를 사용하도록 `sslmode=require`를 지정합니다.
+
+`.env`에 OpenAI 키도 설정한 뒤 백엔드를 실행합니다.
 
 그 다음 백엔드를 실행합니다.
 
@@ -66,7 +69,7 @@ OPENAI_MODEL=gpt-6-luna
 ./gradlew bootRun
 ```
 
-기본 API 주소는 `http://localhost:8081`입니다. 애플리케이션 시작 시 Flyway가 DB 마이그레이션을 적용합니다.
+기본 API 주소는 `http://localhost:8081`입니다. 애플리케이션 시작 시 Flyway가 Supabase DB에 마이그레이션을 적용합니다.
 
 ### 2. Frontend 실행
 

@@ -5,28 +5,35 @@ Spring Boot REST API for the forwarding quote workspace.
 ## Requirements
 
 - JDK 21
-- Docker Desktop for local PostgreSQL
+- A Supabase project (the same project used by the local frontend)
+- Supabase database password
 
 ## Run locally
 
 ```bash
-docker compose up -d postgres
 ./gradlew bootRun
 ```
 
 The default Spring profile is `local`. To select it explicitly, use
 `./gradlew bootRun --args='--spring.profiles.active=local'`.
-The local profile optionally imports `backend/.env` as a properties file. Put
-local-only values such as `OPENAI_API_KEY` there; `.env` is ignored by Git. Copy
-the key name from `.env.example` if setting up a fresh checkout.
+The local profile connects to Supabase PostgreSQL. `src/main/resources/application-local.yml`
+is ignored by Git; create it from `application-local.example.yml` if it does not
+already exist. Copy `.env.example` to `.env`, then set the Supabase project ref,
+the connection details from Supabase **Connect**, and the database password. For IPv4-only
+networks, use the Session pooler values. Keep the frontend's
+`NEXT_PUBLIC_SUPABASE_URL`, the JWT issuer/JWKS URLs, and the database connection
+on the same Supabase project. The JDBC URL uses `sslmode=require`.
+
+The local profile imports `backend/.env` as a properties file. Put local-only
+values such as `OPENAI_API_KEY` and `SUPABASE_DB_PASSWORD` there; `.env` is
+ignored by Git. Copy the key names from `.env.example` when setting up a fresh
+checkout.
 
 Mail analysis uses Spring AI with OpenAI. Set `OPENAI_API_KEY` in `backend/.env`
 before calling the analysis endpoint. `OPENAI_MODEL` can optionally select a
 different model; it defaults to `gpt-5-mini`.
 
-The local API listens on `http://localhost:8081`. The local PostgreSQL
-container uses port `55432` by default so it does not conflict with other local
-PostgreSQL services. Set `SERVER_PORT` or `POSTGRES_PORT` to override either.
+The local API listens on `http://localhost:8081`.
 
 - Health API: `GET /api/health`
 - Actuator health: `GET /actuator/health`
@@ -37,10 +44,10 @@ PostgreSQL services. Set `SERVER_PORT` or `POSTGRES_PORT` to override either.
 The mail analysis request accepts `shipperMail`, `consoleMail`, and
 `cargoSettings`. On successful extraction it stores the original messages,
 calculation settings, and normalized AI result in PostgreSQL, then returns the
-created record. Archive reads these saved records from the API. Production
-records are scoped to the authenticated Supabase user's JWT subject. Local
-development uses the local PostgreSQL container by default; production uses the
-`DATABASE_URL` configured for Supabase in the deployment environment.
+created record. Archive reads these saved records from the API. Records are
+scoped to the authenticated Supabase user's JWT subject. Both local development
+and production use Supabase PostgreSQL, with profile-specific connection
+settings.
 
 Flyway applies the versioned schema migrations at application startup. The
 quote table has Row Level Security enabled and no browser-role policies; use the
