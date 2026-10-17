@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { apiFetch } from "@/lib/api";
@@ -112,6 +112,8 @@ function MailInputField({ id, title, hint, placeholder, mode, setMode, text, set
   invalidateAnalysis: () => void;
 }) {
   const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   async function selectImage(file?: File) {
     if (!file) return;
     setUploadError("");
@@ -126,6 +128,12 @@ function MailInputField({ id, title, hint, placeholder, mode, setMode, text, set
     }
   }
 
+  function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (file) void selectImage(file);
+  }
+
   return <div className="mail-field">
     <div className="mail-label"><span><i className={`label-dot ${id === "shipper" ? "shipper-dot" : "console-dot"}`} />{title}</span><small>{hint}</small></div>
     <div className="mail-input-tabs" role="group" aria-label={`${title} 입력 방식`}>
@@ -136,7 +144,8 @@ function MailInputField({ id, title, hint, placeholder, mode, setMode, text, set
       <textarea aria-label={title} value={text} onChange={event => { invalidateAnalysis(); setImage(""); setText(event.target.value); }} placeholder={placeholder} spellCheck={false} />
       <span className="field-foot">{text.length.toLocaleString()}자</span>
     </div> : <div className="mail-input-content mail-image-area">
-      {image ? <div className="mail-image-preview"><img src={image} alt={`${title} 이미지 미리보기`} /><div><span>이미지가 첨부됐어요</span><div><label className="mail-image-action">이미지 바꾸기<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><button type="button" className="mail-image-action" onClick={() => { setImage(""); setMode("text"); invalidateAnalysis(); }}>제거</button></div></div></div> : <label className="mail-image-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /><span className="mail-image-upload-icon" aria-hidden="true">↑</span><strong>이미지를 선택하세요</strong><small>JPG, PNG, WEBP · 메일 캡처/사진</small></label>}
+      <input ref={fileInputRef} className="mail-image-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} />
+      {image ? <div className="mail-image-preview"><img src={image} alt={`${title} 이미지 미리보기`} /><div><span>이미지가 첨부됐어요</span><div><button type="button" className="mail-image-action" onClick={() => fileInputRef.current?.click()}>이미지 바꾸기</button><button type="button" className="mail-image-action" onClick={() => { setImage(""); setMode("image"); setUploadError(""); invalidateAnalysis(); }}>제거</button></div></div></div> : <button type="button" className="mail-image-upload" onClick={() => fileInputRef.current?.click()}><span className="mail-image-upload-icon" aria-hidden="true">↑</span><strong>이미지를 선택하세요</strong><small>JPG, PNG, WEBP · 메일 캡처/사진</small></button>}
       {uploadError && <span className="mail-image-error" role="alert">{uploadError}</span>}
       <span className="field-foot">이미지는 분석 후 계정 이력에 저장됩니다.</span>
     </div>}
