@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { deleteMailImages, downloadMailImage } from "@/lib/mail-images";
 import { QUOTE_ANALYSIS_SELECTED, QUOTE_HISTORY_UPDATED } from "@/lib/quote-history";
 import type { QuoteAnalysisRecord, QuoteAnalysisSummary } from "@/lib/quote-analysis";
 
@@ -14,9 +15,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const review = pathname === "/review";
   const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unconfigured">("checking");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [accountName, setAccountName] = useState("FWDY");
   const [accountEmail, setAccountEmail] = useState("Google 계정");
+  const [historyCacheKey, setHistoryCacheKey] = useState<string | null>(null);
   const [quoteHistory, setQuoteHistory] = useState<QuoteAnalysisSummary[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [archiveError, setArchiveError] = useState("");
   const [openingHistoryId, setOpeningHistoryId] = useState<string | null>(null);
@@ -29,18 +33,25 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
+    setMobileSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !historyCacheKey) return;
     let active = true;
     const syncQuoteHistory = async () => {
       try {
         const entries = await apiFetch<QuoteAnalysisSummary[]>("/api/quote-analyses");
         if (!active) return;
         setQuoteHistory(entries);
+        writeQuoteHistoryCache(historyCacheKey, entries);
         setActiveHistoryId(sessionStorage.getItem("forward:activeHistoryId"));
         setArchiveError("");
       } catch (error) {
         if (!active) return;
         setArchiveError(error instanceof Error ? error.message : "견적 이력을 불러오지 못했어요.");
+      } finally {
+        if (active) setHistoryLoading(false);
       }
     };
     void syncQuoteHistory();
@@ -49,7 +60,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       active = false;
       window.removeEventListener(QUOTE_HISTORY_UPDATED, syncQuoteHistory);
     };
-  }, [authStatus]);
+  }, [authStatus, historyCacheKey]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -65,6 +76,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const cacheKey = `forward:quote-history:${data.user.id}`;
+      const cachedHistory = readQuoteHistoryCache(cacheKey);
+      setHistoryCacheKey(cacheKey);
+      setQuoteHistory(cachedHistory ?? []);
+      setHistoryLoading(!cachedHistory?.length);
       setAccountName(data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "FWDY");
       setAccountEmail(data.user.email || "Google 계정");
       setAuthStatus("authenticated");
@@ -95,6 +111,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   }, [openArchiveMenuId]);
 
   async function signOut() {
+    if (historyCacheKey) sessionStorage.removeItem(historyCacheKey);
     if (isSupabaseConfigured()) {
       try { await getSupabaseBrowserClient().auth.signOut(); } catch { /* continue to the sign-in page */ }
     }
@@ -132,8 +149,12 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     setArchiveError("");
     try {
       const record = await apiFetch<QuoteAnalysisRecord>(`/api/quote-analyses/${encodeURIComponent(id)}`);
-      sessionStorage.setItem("forward:shipperMail", record.shipperMail);
-      sessionStorage.setItem("forward:consoleMail", record.consoleMail);
+      const [shipperMail, consoleMail] = await Promise.all([
+        record.shipperImagePath ? downloadMailImage(record.shipperImagePath) : Promise.resolve(record.shipperMail),
+        record.consoleImagePath ? downloadMailImage(record.consoleImagePath) : Promise.resolve(record.consoleMail),
+      ]);
+      sessionStorage.setItem("forward:shipperMail", shipperMail);
+      sessionStorage.setItem("forward:consoleMail", consoleMail);
       sessionStorage.setItem("forward:cargoSettings", record.cargoSettings);
       sessionStorage.setItem("forward:analysis", JSON.stringify(record.analysis));
       sessionStorage.setItem("forward:activeHistoryId", record.id);
@@ -160,8 +181,13 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     setDeletingHistoryId(id);
     setArchiveError("");
     try {
+      const record = await apiFetch<QuoteAnalysisRecord>(`/api/quote-analyses/${encodeURIComponent(id)}`);
       await apiFetch<void>(`/api/quote-analyses/${encodeURIComponent(id)}`, { method: "DELETE" });
-      setQuoteHistory(current => current.filter(quote => quote.id !== id));
+      void deleteMailImages([record.shipperImagePath, record.consoleImagePath].filter((path): path is string => Boolean(path)))
+        .catch(error => console.warn("Mail image cleanup failed", error));
+      const updatedHistory = quoteHistory.filter(quote => quote.id !== id);
+      setQuoteHistory(updatedHistory);
+      if (historyCacheKey) writeQuoteHistoryCache(historyCacheKey, updatedHistory);
       if (activeHistoryId === id) newTask();
     } catch (error) {
       setArchiveError(error instanceof Error ? error.message : "견적 기록을 삭제하지 못했어요.");
@@ -179,12 +205,14 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   if (authStatus !== "authenticated") return <main className="auth-gate-page" aria-busy="true"><span className="login-spinner"/><p>로그인 상태를 확인하고 있어요.</p></main>;
 
   return <div className={`workspace-app ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}`}>
-    <aside id="workspace-sidebar" className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+    <button className="mobile-sidebar-toggle" type="button" onClick={() => setMobileSidebarOpen(true)} aria-label="사이드바 열기" aria-expanded={mobileSidebarOpen} aria-controls="workspace-sidebar" title="사이드바 열기"><SidebarToggleIcon /></button>
+    <aside id="workspace-sidebar" className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileSidebarOpen ? "mobile-sidebar-open" : ""}`}>
       <div className="sidebar-header">
         <Link className="brand" href="/analysis" aria-label="FWDY 견적 화면으로 이동"><span className="brand-mark"><FwdyMark /></span><span className="brand-copy"><strong>FWDY</strong><small>Forward, made easy</small></span></Link>
         <button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" title={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}>
           <SidebarToggleIcon />
         </button>
+        <button className="sidebar-mobile-close" type="button" onClick={() => setMobileSidebarOpen(false)} aria-label="사이드바 닫기" title="사이드바 닫기">×</button>
       </div>
       <button className="new-task" onClick={newTask} title="새 견적 작업"><span>＋</span><span className="new-task-label">새 견적 작업</span></button>
       <div className="side-caption archive-caption">ARCHIVE</div>
@@ -220,14 +248,40 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>)}
         </section>)}
+      </div> : historyLoading ? <div className="archive-skeleton" aria-label="견적 이력 불러오는 중" aria-busy="true">
+        {[0, 1, 2].map(index => <div className="archive-skeleton-row" key={index}><i /><span><b /><small /></span></div>)}
       </div> : <div className="empty-archive">메일 분석을 완료하면 여기에 표시됩니다.</div>}
       {archiveError && <div className="archive-error" role="status">{archiveError}</div>}
       <div className="sidebar-bottom"><span className="avatar">{accountName.slice(0, 1).toUpperCase()}</span><span><strong>{accountName}</strong><small title={accountEmail}>{accountEmail}</small></span><button className="logout-button" onClick={signOut} aria-label="로그아웃" title="로그아웃"><LogoutIcon/></button></div>
     </aside>
+    {mobileSidebarOpen && <button className="mobile-sidebar-backdrop" type="button" onClick={() => setMobileSidebarOpen(false)} aria-label="사이드바 닫기" />}
     <div className="workspace-main">
       <main className={`workspace-content ${review ? "review-content" : "intake-content"}`}>{children}</main>
     </div>
   </div>;
+}
+
+function readQuoteHistoryCache(key: string): QuoteAnalysisSummary[] | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const entries: unknown = JSON.parse(raw);
+    if (!Array.isArray(entries) || !entries.every(entry =>
+      entry && typeof entry.id === "string" && typeof entry.createdAt === "string" &&
+      typeof entry.title === "string" && typeof entry.detail === "string"
+    )) return null;
+    return entries as QuoteAnalysisSummary[];
+  } catch {
+    return null;
+  }
+}
+
+function writeQuoteHistoryCache(key: string, entries: QuoteAnalysisSummary[]) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(entries));
+  } catch {
+    // The live API response remains usable if browser storage is unavailable or full.
+  }
 }
 
 function groupQuoteHistory(entries: QuoteAnalysisSummary[]) {
@@ -265,5 +319,5 @@ function localDateKey(date: Date) {
 }
 
 function FwdyMark() { return <svg width="39" height="32" viewBox="0 0 40 32" fill="none" aria-hidden="true"><defs><linearGradient id="fwdy-blue" x1="5" y1="5" x2="31" y2="17" gradientUnits="userSpaceOnUse"><stop stopColor="#155CFF"/><stop offset="1" stopColor="#35BDF4"/></linearGradient><linearGradient id="fwdy-mint" x1="5" y1="27" x2="31" y2="15" gradientUnits="userSpaceOnUse"><stop stopColor="#38E0C2"/><stop offset="1" stopColor="#21BFD0"/></linearGradient></defs><path d="M8 7.5 30 16" stroke="url(#fwdy-blue)" strokeWidth="8" strokeLinecap="round"/><path d="M8 24.5 30 16" stroke="url(#fwdy-mint)" strokeWidth="8" strokeLinecap="round"/></svg>; }
-function SidebarToggleIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 18-6-6 6-6"/><path d="M20 5v14"/></svg>; }
+function SidebarToggleIcon() { return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.8v14.4"/></svg>; }
 function LogoutIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>; }

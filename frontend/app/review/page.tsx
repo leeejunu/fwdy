@@ -252,8 +252,8 @@ function warningFieldLabel(field: string | null) {
   if (normalized.includes("stackable")) return "적재 조건";
   return "메일 내용";
 }
-function NumberInput({ label, value, step = "1", onChange }: { label: string; value: number | null; step?: string; onChange: (value: string) => void }) { return <input className="table-input" aria-label={label} type="number" min="0" step={step} value={value ?? ""} onChange={event => onChange(event.target.value)}/>; }
-function RateInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <input className="quote-input" aria-label={label} type="number" step="any" value={value} onChange={event => onChange(event.target.value)}/>; }
+function NumberInput({ label, value, step = "1", onChange }: { label: string; value: number | null; step?: string; onChange: (value: string) => void }) { return <input className="table-input" aria-label={label} type="number" min="0" step={step} value={value ?? ""} onChange={event => onChange(event.target.value)} onWheel={event => event.currentTarget.blur()}/>; }
+function RateInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <input className="quote-input" aria-label={label} type="number" step="any" value={value} onChange={event => onChange(event.target.value)} onWheel={event => event.currentTarget.blur()}/>; }
 function QuoteTextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <input className="quote-input quote-text-input" aria-label={label} type="text" value={value} onChange={event => onChange(event.target.value)}/>; }
 function QuoteCalculation({ vendor, airline, basis, chargeableWeight, appliedWeight, charges, total, sourceText }: { vendor: string | null; airline: string | null; basis: string; chargeableWeight: number; appliedWeight: number; charges: EvaluatedCharge[]; total: number; sourceText: string | null }) {
   const basisMatch = basis.trim().toUpperCase().replace(/\s+/g, "").match(/^AS(?:\+)?(\d+(?:\.\d+)?)$/);

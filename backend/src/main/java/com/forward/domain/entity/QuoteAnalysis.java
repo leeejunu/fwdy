@@ -35,6 +35,12 @@ public class QuoteAnalysis {
 	@Column(name = "console_mail", nullable = false, columnDefinition = "text")
 	private String consoleMail;
 
+	@Column(name = "shipper_image_path", columnDefinition = "text")
+	private String shipperImagePath;
+
+	@Column(name = "console_image_path", columnDefinition = "text")
+	private String consoleImagePath;
+
 	@Column(name = "cargo_settings", nullable = false, columnDefinition = "text")
 	private String cargoSettings;
 
@@ -48,12 +54,14 @@ public class QuoteAnalysis {
 	}
 
 	public QuoteAnalysis(UUID userId, String title, String detail, String shipperMail,
-			String consoleMail, String cargoSettings, String analysisResult) {
+			String consoleMail, String shipperImagePath, String consoleImagePath, String cargoSettings, String analysisResult) {
 		this.userId = userId;
 		this.title = title;
 		this.detail = detail;
 		this.shipperMail = shipperMail;
 		this.consoleMail = consoleMail;
+		this.shipperImagePath = shipperImagePath;
+		this.consoleImagePath = consoleImagePath;
 		this.cargoSettings = cargoSettings;
 		this.analysisResult = analysisResult;
 		this.createdAt = Instant.now();
@@ -81,6 +89,14 @@ public class QuoteAnalysis {
 
 	public String getConsoleMail() {
 		return consoleMail;
+	}
+
+	public String getShipperImagePath() {
+		return shipperImagePath;
+	}
+
+	public String getConsoleImagePath() {
+		return consoleImagePath;
 	}
 
 	public String getCargoSettings() {

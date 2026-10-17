@@ -9,6 +9,7 @@ import com.forward.dto.response.QuoteAnalysisRecordResponse;
 import com.forward.dto.response.QuoteAnalysisSummaryResponse;
 import com.forward.service.MailAnalysisService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,13 +24,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/quote-analyses")
+@RequiredArgsConstructor
 @Slf4j
 public class QuoteAnalysisController {
 	private final MailAnalysisService mailAnalysisService;
-
-	public QuoteAnalysisController(MailAnalysisService mailAnalysisService) {
-		this.mailAnalysisService = mailAnalysisService;
-	}
 
 	@PostMapping
 	public ResponseEntity<QuoteAnalysisRecordResponse> createAnalysis(@Valid @RequestBody MailAnalysisRequest request,

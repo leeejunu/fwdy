@@ -59,6 +59,8 @@ export type QuoteAnalysisSummary = {
 export type QuoteAnalysisRecord = QuoteAnalysisSummary & {
   shipperMail: string;
   consoleMail: string;
+  shipperImagePath: string | null;
+  consoleImagePath: string | null;
   cargoSettings: string;
   analysis: MailAnalysisResponse;
 };

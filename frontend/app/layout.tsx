@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
-import AgentationDev from "./agentation-dev";
+import dynamic from "next/dynamic";
 import "./globals.css";
+
+const AgentationDev = process.env.NODE_ENV === "development"
+  ? dynamic(() => import("./agentation-dev"))
+  : () => null;
 
 export const metadata: Metadata = {
   title: "FWDY | 포워딩 견적 워크스페이스",
@@ -10,7 +14,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body>{children}<AgentationDev /></body>
+      <body>{children}{process.env.NODE_ENV === "development" && <AgentationDev />}</body>
     </html>
   );
 }

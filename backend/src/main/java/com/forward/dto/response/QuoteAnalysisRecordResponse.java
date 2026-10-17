@@ -10,6 +10,8 @@ public record QuoteAnalysisRecordResponse(
 		String detail,
 		String shipperMail,
 		String consoleMail,
+		String shipperImagePath,
+		String consoleImagePath,
 		String cargoSettings,
 		MailAnalysisResponse analysis) {
 }
